@@ -3,7 +3,7 @@
 
 Function to split X and Y in between a train and a test sample.
 """
-function split_train_test(X::Array{Array{Float64,1},1}, y::Array; ratio::Float64 = 0.25, testRatio::Bool=false, tolTestRatio::Float64 = 0.10)
+function split_train_test(X::Array{Array{Float64,1},1}, y::Array{Array{Float64,1},1}; ratio::Float64 = 0.25, testRatio::Bool=false, tolTestRatio::Float64 = 0.10)
 
     uni = Bernoulli(ratio)
     draws = rand(uni, size(X,1))
@@ -11,8 +11,7 @@ function split_train_test(X::Array{Array{Float64,1},1}, y::Array; ratio::Float64
     XTest = X[draws .== 1]
     XTrain = X[draws .== 0]
 
-
-    yTest =y[draws .== 1]
+    yTest = y[draws .== 1]
     yTrain = y[draws .== 0]
 
     if testRatio == true
@@ -30,6 +29,16 @@ function split_train_test(X::Array{Array{Float64,1},1}, y::Array; ratio::Float64
 
     return XTrain, XTest, yTest, yTrain
 
+end
+
+
+"""
+  split_train_test(X::Array{Float64,2}, y::Array{Float64,2}; ratio::Float64 = 0.25, testRatio::Bool=false, tolTestRatio::Float64 = 0.10)
+
+Function to split X and Y in between a train and a test sample.
+"""
+function split_train_test(X::Array{Float64,2}, y::Array{Float64,2}; ratio::Float64 = 0.25, testRatio::Bool=false, tolTestRatio::Float64 = 0.10)
+  return split_train_test(convert_to_array_of_arrays(X), convert_to_array_of_arrays(y), ratio = ratio, testRatio = testRatio, tolTestRatio = tolTestRatio)
 end
 
 """
@@ -154,6 +163,17 @@ function set_model_function!(sModelsProblem::SModelsProblem, f::Function)
   sModelsProblem.modelFunction = f
 
 end
+
+"""
+  set_bounds!(sModelsProblem::SModelsProblem, lowerBound::Array{Float64,1}, upperBound::Array{Float64,1})
+"""
+function set_bounds!(sModelsProblem::SModelsProblem, lowerBound::Array{Float64,1}, upperBound::Array{Float64,1})
+
+  sModelsProblem.lowerBound = lowerBound
+  sModelsProblem.upperBound = upperBound
+
+end
+
 
 """
   calculate_mean_per_error(yTrue::Array{Float64,1}, yPredicted::Array{Float64,1})

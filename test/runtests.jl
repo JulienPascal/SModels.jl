@@ -57,6 +57,10 @@ end
         [x^2 + y^2, exp(x)*cos(y)]
     end
 
+    function trueFunction(z::Array{Float64,1})
+        trueFunction(z[1], z[2])
+    end
+
     # create an input matrix
     function createX(;dimInput = 2, lowerBoundX = -1.0, lowerBoundY = -1.0, upperBoundX = 1.0, upperBoundY = 1.0, nbPointsX = 10, nbPointsY = 10)
         
@@ -272,6 +276,115 @@ end
         #scaled versus unscaled observation
         @test yPredictedScaled ≈ yPredictedUnscaled atol = aTolScaled 
         
+    end
+
+    #cross-validation to choose the hidden-layer done "manually"
+    #-----------------------------------------------------------
+    @testset "Testing package on 2d->2d function" begin
+
+        aTolMeanPerError = 0.05
+        aTolMaxPerError = 1.2
+        aTolScaled = 0.001
+
+        upperBoundX = [1.0; 1.0]
+        lowerBoundX = [-1.0; -1.0]
+
+        opts = SModelsOptions(sModelType = :MLPRegressor)
+
+        surrogatePb = SModelsProblem(    #function f:x -> y that we are trying to approximate
+                          lowerBound = lowerBoundX, #lower bound for the parameter space
+                          upperBound = upperBoundX,                   #upper bound for the parameter space
+                          dimX = 2,                #dimension of the input parameter
+                          dimY = 2,                 #dimension of the output vector
+                          options = opts)
+        
+        set_model_function!(surrogatePb, trueFunction)
+
+        # training the surrogate model
+        surrogatem = train_sModel(surrogatePb, verbose =true)
+
+        #input
+        X = createX()
+        #ouptut
+        y = createY(X)
+
+        XScaled = transform(surrogatePb.scaler, X)
+
+        yPredicted = predict(surrogatem, XScaled)
+
+        println("Mean Percentage Different Set = $(calculate_mean_per_error(y, yPredicted))")
+        println("Maximum Percentage Error Different Set = $(calculate_maximum_per_error(y, yPredicted))")
+
+    end
+
+    @testset "Testing parallel capabilities" begin
+        
+        addprocs(3)
+
+        listMeanPerErr = []
+        listMaxPerErr = []
+
+        for i = 1:3
+
+            # with batchSizeWorker = 10
+            #--------------------------
+            @everywhere using SModels
+
+            @everywhere upperBoundX = [1.0; 1.0]
+            @everywhere lowerBoundX = [-1.0; -1.0]
+
+            if i == 1
+                @everywhere b = 10
+            elseif i==2
+                @everywhere b = 100
+            else
+                @everywhere b = 500
+            end
+            @everywhere opts = SModelsOptions(sModelType = :MLPRegressor, batchSizeWorker = b)
+
+            @everywhere surrogatePb = SModelsProblem(    #function f:x -> y that we are trying to approximate
+                              lowerBound = lowerBoundX, #lower bound for the parameter space
+                              upperBound = upperBoundX,                   #upper bound for the parameter space
+                              dimX = 2,                #dimension of the input parameter
+                              dimY = 2,                 #dimension of the output vector
+                              options = opts)
+
+            # 2d->2d function we aim at fitting
+            @everywhere function trueFunction(x::Float64, y::Float64)
+                [x^2 + y^2, exp(x)*cos(y)]
+            end
+
+            @everywhere function trueFunction(z::Array{Float64,1})
+                trueFunction(z[1], z[2])
+            end
+        
+            set_model_function!(surrogatePb, trueFunction)
+
+            # training the surrogate model
+            surrogatem = train_sModel(surrogatePb, verbose =true)
+
+            #input
+            X = createX()
+            #ouptut
+            y = createY(X)
+
+            XScaled = transform(surrogatePb.scaler, X)
+
+            yPredicted = predict(surrogatem, XScaled)
+
+            append!(listMeanPerErr,calculate_mean_per_error(y, yPredicted))
+            append!(listMaxPerErr, calculate_maximum_per_error(y, yPredicted))
+
+            println("Mean Percentage Different Set = $(calculate_mean_per_error(y, yPredicted))")
+            println("Maximum Percentage Error Different Set = $(calculate_maximum_per_error(y, yPredicted))")
+
+        end
+
+
+        # More points should be converted to more precise surrogate models
+        @test abs(listMeanPerErr[1]) > abs(listMeanPerErr[2]) > abs(listMeanPerErr[3])
+        @test abs(listMaxPerErr[1]) > abs(listMaxPerErr[2]) > abs(listMaxPerErr[3])
+
     end
 
 end
