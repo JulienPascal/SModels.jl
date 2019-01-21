@@ -13,8 +13,6 @@ struct SModelsOptions
   batchSizeWorker::Int64   # Number of evals done by each worker at each round (multiple of nworkers())
   batchSize::Int64         # batchSize = nworkers()*batchSizeWorker
   maxEvals::Int64          # maxEvals = nbBatches*batchSize
-  onCluster::Bool          # Are you on a cluster
-  clusterType::Symbol      # Type of cluster used
   testTrainRatio::Float64  # size of the test sample relative to the train one
 end
 
@@ -23,7 +21,7 @@ end
 SModelsProblem is a mutable struct that caries all the information needed to
 build a surrogate model.
 """
-mutable struct SMMProblem
+mutable struct SModelsProblem
   modelFunction::Function      #function f:x -> y that we are trying to approximate
   lowerBound::Array{Float64,1} #lower bound for the parameter space
   upperBound::Array{Float64,1} #upper bound for the parameter space

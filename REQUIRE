@@ -4,3 +4,6 @@ ScikitLearn
 PyCallJLD
 JLD
 DistributedArrays
+LatinHypercubeSampling
+Distributions
+PyCall

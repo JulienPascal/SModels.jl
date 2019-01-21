@@ -1,7 +1,8 @@
 # * use DistributedArrays
 # *
 
-function train_sModel( ;verbose::Bool=false)
+#=
+function train_sModel(sModelsProblem::SModelsProblem; verbose::Bool=false)
 
 
   # Initialization
@@ -48,11 +49,16 @@ function train_sModel( ;verbose::Bool=false)
       YDense = vcat(YDense, convert(Array, YDistributed))
     end
 
+    # Convert XDense to an Array{{Array{Float64,1},1}}
+    #-------------------------------------------------
+    # TODO
+    # convertToArrayOfArrays(X::Array{Float64,2})
+
     # Split between train and test samples
     #--------------------------------------
     # TODO
 
-    # Train the model, use crossvalidation
+    # Train the model, use cross-validation
     #-------------------------------------
     # TODO
     if verbose == true
@@ -71,3 +77,4 @@ function train_sModel( ;verbose::Bool=false)
   end
 
 end
+=#
