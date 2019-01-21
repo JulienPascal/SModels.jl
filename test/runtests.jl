@@ -137,7 +137,7 @@ end
 
     end
 
-    #TODO: cross-validation to choose the hidden-layer
+    #cross-validation to choose the hidden-layer
     #-------------------------------------------------
     @testset "Testing fitting a 2d->2d function tuning hyper-parameters" begin
 
@@ -166,6 +166,85 @@ end
         # training network using the "best" hidden layer
         #-----------------------------------------------
         clfr = MLPRegressor(solver="lbfgs", alpha=1e-5, hidden_layer_sizes=gridsearch.best_params_[:hidden_layer_sizes], random_state=1)
+        fit!(clfr, XTrainScaled, yTrain) 
+
+        # Train set
+        #----------
+        yPredicted = predict(clfr, XTrainScaled)
+
+        println("Mean Percentage Error Train Set = $(calculate_mean_per_error(yTrain, yPredicted))")
+        println("Maximum Percentage Error Train Set = $(calculate_maximum_per_error(yTrain, yPredicted))")
+        @test abs(calculate_mean_per_error(yTrain, yPredicted)) < aTolMeanPerError
+        @test abs(calculate_maximum_per_error(yTrain, yPredicted)) < aTolMaxPerError
+
+
+        # Test set
+        #---------
+        yPredicted = predict(clfr, XTestScaled)
+
+        println("Mean Percentage Error Test Set = $(calculate_mean_per_error(yTest, yPredicted))")
+        println("Maximum Percentage Error Test Set = $(calculate_maximum_per_error(yTest, yPredicted))")
+        @test abs(calculate_mean_per_error(yTest, yPredicted)) < aTolMeanPerError
+        @test abs(calculate_maximum_per_error(yTest, yPredicted)) < aTolMaxPerError
+
+        yPredictedScaled = predict_one_obs_scaled(clfr, XTrainScaled[1,:])
+        yPredictedUnscaled = predict_one_obs_unscaled(clfr, XTrain[1,:], scaler)
+
+        #scaled versus unscaled observation
+        @test yPredictedScaled ≈ yPredictedUnscaled atol = aTolScaled 
+        
+    end
+
+    #cross-validation to choose the hidden-layer done "manually"
+    #-----------------------------------------------------------
+    @testset "Testing fitting a 2d->2d function manually tuning hyper-parameters" begin
+
+        aTolMeanPerError = 0.05
+        aTolMaxPerError = 1.2
+        aTolScaled = 0.001
+
+        #input
+        X = createX()
+        #ouptut
+        y = createY(X)
+
+        # splitting between train and test samples
+        XTrain, XTest, yTest, yTrain = split_train_test(X, y, testRatio = false)
+
+        # scaling 
+        scaler = StandardScaler() 
+        fit!(scaler, XTrain)
+        XTrainScaled = transform(scaler, XTrain) 
+        XTestScaled = transform(scaler, XTest)  
+
+
+        d = Dict(:hidden_layer_sizes => ((10), (20), (30), (40), (10, 10), (10, 20), (10, 30), (20, 10), (20, 20), (20, 30), (30, 10), (30, 20), (30, 30)))
+        bestMaxPerError = Inf
+        bestParam = d[:hidden_layer_sizes][1]
+
+        # Loop over hidden layers configuration
+        # Looking fot the hidden layer configuration that minimizes the max error in the test set
+        for (kIndex, kValue) in enumerate(d[:hidden_layer_sizes])
+
+            println(kValue)
+            clfr = MLPRegressor(solver="lbfgs", alpha=1e-5, hidden_layer_sizes = kValue, random_state=1)
+            fit!(clfr, XTrainScaled, yTrain) 
+
+            yPredicted = predict(clfr, XTestScaled)
+            maxPerErr = calculate_maximum_per_error(yTest, yPredicted)
+
+            if maxPerErr < bestMaxPerError 
+                bestMaxPerError = maxPerErr
+                bestParam = kValue
+            end
+
+        end
+
+        println("Best hyper-parameters: $(bestParam)")
+
+        # training network using the "best" hidden layer
+        #-----------------------------------------------
+        clfr = MLPRegressor(solver="lbfgs", alpha=1e-5, hidden_layer_sizes=bestParam, random_state=1)
         fit!(clfr, XTrainScaled, yTrain) 
 
         # Train set
