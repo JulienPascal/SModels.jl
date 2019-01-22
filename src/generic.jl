@@ -135,7 +135,7 @@ Function to predict one observation. Scale the observation first.
 """
 function predict_one_obs_unscaled(clfr::PyObject, X::Array{Float64,1}, scaler::PyObject)
 
-  XScaled = transform(scaler, X)
+  XScaled = transform(scaler, convert_vector_to_array(X))
   convert_vector_to_array(predict(clfr, convert_vector_to_array(XScaled)))
 
 end
@@ -289,5 +289,39 @@ Function to calculate the maximum_ percentage error
 function calculate_maximum_per_error(yTrue::Array{Array{Float64,1},1}, yPredicted::Array{Float64,2})
 
   return calculate_maximum_per_error(convert_to_array(yTrue), yPredicted)
+
+end
+
+
+"""
+  calculate_maximum_abs_per_error(yTrue::Array{Float64,2}, yPredicted::Array{Float64,2})
+
+Function to calculate the absolute value of the maximum percentage error
+"""
+function calculate_maximum_abs_per_error(yTrue::Array{Float64,2}, yPredicted::Array{Float64,2})
+
+  return abs(calculate_maximum_per_error(yTrue, yPredicted))
+
+end
+
+"""
+  calculate_maximum_abs_per_error(yTrue::Array{Array{Float64,1},1}, yPredicted::Array{Float64,2})
+
+Function to calculate the asbolute value of the maximum_percentage error
+"""
+function calculate_maximum_abs_per_error(yTrue::Array{Array{Float64,1},1}, yPredicted::Array{Float64,2})
+
+  return abs(calculate_maximum_per_error(convert_to_array(yTrue), yPredicted))
+
+end
+
+"""
+  date_now()
+
+Return date and time
+"""
+function date_now()
+
+  "$(Dates.today())--$(Dates.hour(Dates.now()))h-$(Dates.minute(Dates.now()))m-$(Dates.second(Dates.now()))s"
 
 end

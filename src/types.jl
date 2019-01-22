@@ -7,6 +7,7 @@ model
 struct SModelsOptions
   sModelType::Symbol          # The type of model to use for the surrogate model
   desiredMaxPerError::Float64 # The desired percentage error after which training is stopped
+	desiredMinObs::Int64			# Minimum number of points in the train sample before stopping
   nWorkers::Int64          # To store the number of workers
   nbBatches::Int64         # Total number of batches before stopping
   batchSizeWorker::Int64   # Number of evals done by each worker at each round (multiple of nworkers())
@@ -17,7 +18,8 @@ struct SModelsOptions
 end
 
 function SModelsOptions( ; sModelType = :MLPRegressor,
-                          desiredMaxPerError::Float64 = 0.5, # The desired percentage error after which training is stopped
+                          desiredMaxPerError::Float64 = 0.5,
+													desiredMinObs::Int64 = 1000, # The desired percentage error after which training is stopped
                           nWorkers::Int64 = nworkers(),          # To store the number of workers
                           nbBatches::Int64 = 10,        # Total number of batches before stopping
                           batchSizeWorker::Int64 = 10,  # Number of evals done by each worker at each round (multiple of nworkers())
@@ -29,6 +31,7 @@ function SModelsOptions( ; sModelType = :MLPRegressor,
 
     SModelsOptions(sModelType,
                   desiredMaxPerError,
+									desiredMinObs,
                   nWorkers,
                   nbBatches,
                   batchSizeWorker,

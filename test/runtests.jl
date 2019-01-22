@@ -340,7 +340,7 @@ end
             else
                 @everywhere b = 1000
             end
-            @everywhere opts = SModelsOptions(sModelType = :MLPRegressor, batchSizeWorker = b)
+            @everywhere opts = SModelsOptions(sModelType = :MLPRegressor, batchSizeWorker = b, desiredMinObs = 10)
 
             @everywhere surrogatePb = SModelsProblem(    #function f:x -> y that we are trying to approximate
                               lowerBound = lowerBoundX,  #lower bound for the parameter space
@@ -361,7 +361,7 @@ end
             set_model_function!(surrogatePb, trueFunction)
 
             # training the surrogate model
-            surrogatem = train_sModel(surrogatePb, verbose =true)
+            surrogatem = train_sModel(surrogatePb, verbose = true, saveToDisk = true)
 
             #input
             X = createX()

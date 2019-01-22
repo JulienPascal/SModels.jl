@@ -34,6 +34,7 @@ module SModels
   export calculate_mean_per_error, calculate_max_per_error, calculate_mean_per_error
   export calculate_mean_per_error, calculate_maximum_per_error, calculate_maximum_per_error
   export set_bounds!
+  export date_now
 
   # draws.jl
   #---------

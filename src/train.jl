@@ -1,7 +1,7 @@
 # * use DistributedArrays
 # *
 
-function train_sModel(sModelsProblem::SModelsProblem; verbose::Bool=false)
+function train_sModel(sModelsProblem::SModelsProblem; verbose::Bool=false, saveToDisk::Bool=false)
 
   #initialization
   clfr = MLPRegressor(solver="lbfgs", alpha=1e-5, hidden_layer_sizes = (2), random_state=1)
@@ -108,7 +108,7 @@ function train_sModel(sModelsProblem::SModelsProblem; verbose::Bool=false)
         fit!(clfr, XTrainScaled, yTrain)
 
         yPredicted = predict(clfr, XTestScaled)
-        maxPerErr = calculate_maximum_per_error(yTest, yPredicted)
+        maxPerErr = calculate_maximum_abs_per_error(yTest, yPredicted)
 
         if maxPerErr < bestMaxPerError
             bestMaxPerError = maxPerErr
@@ -132,7 +132,7 @@ function train_sModel(sModelsProblem::SModelsProblem; verbose::Bool=false)
 
     if verbose == true
       info("Mean Percentage Error Train Set = $(calculate_mean_per_error(yTrain, yPredicted))")
-      info("Maximum Percentage Error Train Set = $(calculate_maximum_per_error(yTrain, yPredicted))")
+      info("Abs Maximum Percentage Error Train Set = $(calculate_maximum_abs_per_error(yTrain, yPredicted))")
     end
 
     # Test set
@@ -141,23 +141,43 @@ function train_sModel(sModelsProblem::SModelsProblem; verbose::Bool=false)
 
     if verbose == true
       info("Mean Percentage Error Test Set = $(calculate_mean_per_error(yTest, yPredicted))")
-      info("Maximum Percentage Error Test Set = $(calculate_maximum_per_error(yTest, yPredicted))")
+      info("Abs Maximum Percentage Error Test Set = $(calculate_maximum_abs_per_error(yTest, yPredicted))")
     end
 
+    # If requested, save the model
+    #-----------------------------
+    if saveToDisk == true
+
+      if verbose == true
+        info("Saving files to disk")
+      end
+
+      JLD.save("clfr_$(date_now()).jld", "clfr", clfr)
+      JLD.save("XDense_$(date_now()).jld", "XDense", XDense)
+      JLD.save("YDense_$(date_now()).jld", "YDense", YDense)
+
+    end
     # Test model accuracy
     # If good enough, stop and save the model
     # Else, move the next batch
     #----------------------------------------
-    if calculate_maximum_per_error(yTest, yPredicted) < sModelsProblem.options.desiredMaxPerError
+    if calculate_maximum_abs_per_error(yTest, yPredicted) < sModelsProblem.options.desiredMaxPerError
 
       if verbose == true
         info("Desired max percentage error = $(sModelsProblem.options.desiredMaxPerError)")
-        info("Target for max percentage error reached. Training succesfull.")
+        info("Size of the train sample = $(size(XTrain,1))")
       end
 
-      sModelsProblem.trainingSuccessful = true
+      if size(XTrain,1) > sModelsProblem.options.desiredMinObs
 
-      break
+        if verbose == true
+          info("Minimum number of points in the train sample reaching. Training succesfull.")
+        end
+
+        sModelsProblem.trainingSuccessful = true
+        break
+
+      end
 
     end
 
