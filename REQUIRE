@@ -1,9 +1,9 @@
 julia 0.6
 DecisionTree
 ScikitLearn
-PyCallJLD
-JLD
-DistributedArrays
-LatinHypercubeSampling
-Distributions
 PyCall
+JLD
+PyCallJLD
+DistributedArrays
+Distributions
+

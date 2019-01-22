@@ -9,7 +9,6 @@ module SModels
   using PyCallJLD
   using JLD
   using DistributedArrays
-  using LatinHypercubeSampling
   using Distributions
 
   # imports from ScikitLearn
