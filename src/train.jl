@@ -3,16 +3,30 @@
 
 function train_sModel(sModelsProblem::SModelsProblem; verbose::Bool=false, saveToDisk::Bool=false)
 
+  starting_date = date_now()
+
   #initialization
+  #--------------
+  # regression model to predict the continuous output
   clfr = MLPRegressor(solver="lbfgs", alpha=1e-5, hidden_layer_sizes = (2), random_state=1)
+  # classifier to predict convergence of the model
+  # clf = MLPClassifier(solver="lbfgs", alpha=1e-5, hidden_layer_sizes = (2), random_state=1)
 
   if verbose == true
+    info("Starting date = $(starting_date)")
     info("nworkers = $(nworkers())")
   end
 
-  # Initialization
+  # Initialization objects on process 1 only:
+  #-----------------------------------------
+  # To store parameter values
   XDense = Array{Float64}(0,0)
+  # To store output values
   YDense = Array{Float64}(0,0)
+  # To store convergence status:
+  # 0. = model did not convergence
+  # 1. = model converged
+  YConvergenceDense = Array{Float64}(0)
 
   # Generate random draws from the parameter space
   listGrids = []
@@ -31,6 +45,8 @@ function train_sModel(sModelsProblem::SModelsProblem; verbose::Bool=false, saveT
       info("nb function evaluations = $(i*sModelsProblem.options.batchSize)")
     end
 
+    # Objects distributed on the cluster
+    #-----------------------------------
     # row dimension = moving along observations
     # column dimension = moving along one observation
     # Model's input:
@@ -41,16 +57,17 @@ function train_sModel(sModelsProblem::SModelsProblem; verbose::Bool=false, saveT
 
     # Model's output
     #---------------
-    # is going to be modified
+    # are going to be modified
     #-------------------------
     YDistributed = distribute(zeros(sModelsProblem.options.batchSize, sModelsProblem.dimY),  procs = workers(), dist = [nworkers(), 1])
+    YConvergenceDistributed = distribute(zeros(sModelsProblem.options.batchSize, 1),  procs = workers(), dist = [nworkers(), 1])
 
     # Split the work on the cluster
     #------------------------------
     refs = Array{Any,1}(nworkers())
     @sync for (wIndex, wID) in enumerate(workers())
       # Each worker modifies its part of XDistributed and YDistributed
-      @async refs[wIndex] = @spawnat wID evaluateModel!(sModelsProblem, localpart(XDistributed), localpart(YDistributed))
+      @async refs[wIndex] = @spawnat wID evaluateModel!(sModelsProblem, localpart(XDistributed), localpart(YDistributed), localpart(YConvergenceDistributed))
     end
 
     # synchronization
@@ -75,6 +92,12 @@ function train_sModel(sModelsProblem::SModelsProblem; verbose::Bool=false, saveT
       YDense = vcat(YDense, convert(Array, YDistributed))
     end
 
+    if YConvergenceDense == Array{Float64}(0)
+      YConvergenceDense = convert(Array, YConvergenceDistributed)
+    else
+      YConvergenceDense = vcat(YConvergenceDense, convert(Array, YConvergenceDistributed))
+    end
+
     # Split between train and test samples
     #--------------------------------------
     XTrain, XTest, yTest, yTrain = split_train_test(XDense, YDense, testRatio = false)
@@ -87,15 +110,21 @@ function train_sModel(sModelsProblem::SModelsProblem; verbose::Bool=false, saveT
     XTestScaled = transform(sModelsProblem.scaler, XTest)
 
 
-    # Train the model, use cross-validation
-    #-------------------------------------
-    # TODO
+    # Train the model to predict the continuous output
+    # Use "manual" cross-validation on train versus test samples
+    #---------------------------------------------------------------------------
     if verbose == true
       info("Training the model")
     end
 
-    # There is certainly a better way of doing that
-    d = Dict(:hidden_layer_sizes => ((10), (20), (30), (40), (10, 10), (10, 20), (10, 30), (20, 10), (20, 20), (20, 30), (30, 10), (30, 20), (30, 30)))
+    # TODO: automatic way of doing that + adapt to the number of inputs and output
+    # Low tech: There is certainly a better way of doing that
+    d = Dict(:hidden_layer_sizes => ((10), (20), (30), (40),
+                                    (10, 10), (10, 20), (10, 30), (10, 40),
+                                    (20, 10), (20, 20), (20, 30), (20, 40),
+                                    (30, 10), (30, 20), (30, 30), (30, 40),
+                                    (40, 10), (40, 20), (40, 30), (40, 40),
+                                    (10,10,10), (20,20,20), (30,30,30), (40,40,40)))
     bestMaxPerError = Inf
     bestParam = d[:hidden_layer_sizes][1]
 
@@ -144,6 +173,11 @@ function train_sModel(sModelsProblem::SModelsProblem; verbose::Bool=false, saveT
       info("Abs Maximum Percentage Error Test Set = $(calculate_maximum_abs_per_error(yTest, yPredicted))")
     end
 
+    # TODO
+    # Train another model to predict convergence versus not convergence of the
+    # model.
+    #---------------------------------------------------------------------------
+
     # If requested, save the model
     #-----------------------------
     if saveToDisk == true
@@ -152,9 +186,11 @@ function train_sModel(sModelsProblem::SModelsProblem; verbose::Bool=false, saveT
         info("Saving files to disk")
       end
 
-      JLD.save("clfr_$(date_now()).jld", "clfr", clfr)
-      JLD.save("XDense_$(date_now()).jld", "XDense", XDense)
-      JLD.save("YDense_$(date_now()).jld", "YDense", YDense)
+      JLD.save("clfr_$(starting_date).jld", "clfr", clfr)
+      JLD.save("scaler_$(starting_date).jld", "scaler", sModelsProblem.scaler)
+      JLD.save("XDense_$(starting_date).jld", "XDense", XDense)
+      JLD.save("YDense_$(starting_date).jld", "YDense", YDense)
+      JLD.save("YConvergenceDense_$(starting_date).jld", "YConvergenceDense", YConvergenceDense)
 
     end
     # Test model accuracy
@@ -195,17 +231,26 @@ function train_sModel(sModelsProblem::SModelsProblem; verbose::Bool=false, saveT
 end
 
 
-function evaluateModel!(sModelsProblem::SModelsProblem, XDistributed::Array, YDistributed::Array; penaltyValue::Float64 = 9999999.0)
+function evaluateModel!(sModelsProblem::SModelsProblem, XDistributed::Array, YDistributed::Array, YConvergenceDistributed::Array;
+                        penaltyValue::Float64 = 9999999.0,
+                        convergenceFlag::Float64 = 1.0,
+                        nonConvergenceFlag::Float64 = 0.0)
 
   # Loop over local part of XDistributed
   #-------------------------------------
   for i=1:size(XDistributed, 1)
 
+    # set penalty value by default:
+    YDistributed[i,:] = ones(sModelsProblem.dimX)*penaltyValue
+    YConvergenceDistributed[i] = nonConvergenceFlag
+
     try
+      # if model is evaluated successfully, penalty values are overwritten
+      #-------------------------------------------------------------------
       YDistributed[i,:] = sModelsProblem.modelFunction(XDistributed[i,:])
+      YConvergenceDistributed[i] = convergenceFlag
     catch errF
       info("$(errF)")
-      YDistributed[i,:] = ones(sModelsProblem.dimX)*penaltyValue
     end
 
   end
