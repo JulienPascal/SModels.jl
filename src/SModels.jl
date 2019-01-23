@@ -34,7 +34,8 @@ module SModels
   export predict_scaled_robust
   export convert_vector_to_array, convert_vector_to_array, predict_one_obs_scaled
   export predict_one_obs_unscaled, predict_one_obs_unscaled, set_model_function!
-  export calculate_mean_per_error, calculate_maximum_abs_per_error
+  export calculate_mean_per_error, calculate_median_abs_per_error
+  export calculate_maximum_abs_per_error
   export set_bounds!
   export date_now
 

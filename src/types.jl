@@ -68,10 +68,8 @@ mutable struct SModelsProblem
   dimY::Int64                  #dimension of the output vector
   options::SModelsOptions      #options
   trainingSuccessful::Bool     #desiredPerError reached?
-  #scaler::PyObject             #to rescale the data for the regressor
-	#scalerRobust::PyObject       #to rescale the data for the regressor
-	scaler::Any            #to rescale the data for the regressor
-	scalerRobust::Any      #to rescale the data for the regressor
+  scaler::PyObject             #to rescale the data for the regressor
+	scalerRobust::PyObject       #to rescale the data for the regressor
 end
 
 
@@ -82,8 +80,8 @@ function SModelsProblem( ;modelFunction::Function = default_function,    #functi
                           dimY::Int64 = 1,                 #dimension of the output vector
                           options::SModelsOptions = SModelsOptions(),     #options
                           trainingSuccessful::Bool = false,     #desiredPerError reached?
-                          scaler = [],
-													scalerRobust = [])
+                          scaler::PyObject = StandardScaler(),
+													scalerRobust::PyObject = StandardScaler())
 
 
   SModelsProblem(modelFunction,      #function f:x -> y that we are trying to approximate
