@@ -181,7 +181,7 @@ end
     @testset "Testing fitting a 2d->2d function tuning hyper-parameters" begin
 
         aTolMeanPerError = 0.05
-        aTolMaxPerError = 1.2
+        aTolMaxPerError = 2.5
         aTolScaled = 0.001
 
         #input
@@ -239,7 +239,7 @@ end
     @testset "Testing fitting a 2d->2d function manually tuning hyper-parameters" begin
 
         aTolMeanPerError = 0.05
-        aTolMaxPerError = 1.2
+        aTolMaxPerError = 2.5
         aTolScaled = 0.001
 
         #input
@@ -326,7 +326,7 @@ end
         lowerBoundX = [-1.0; -1.0]
 
 
-        opts = SModelsOptions(sModelType = :MLPRegressor, classifierType = :MLPClassifier, desiredMinObs = 40)
+        opts = SModelsOptions(sModelType = :MLPRegressor, classifierType = :MLPClassifier, batchSizeWorker = 100, desiredMinObs = 100)
 
         surrogatePb = SModelsProblem(
                           lowerBound = lowerBoundX, #lower bound for the parameter space
@@ -338,11 +338,9 @@ end
 
         set_model_function!(surrogatePb, trueFunction)
 
-
         # training the surrogate model
-        surrogatem, classifier = train_sModel(surrogatePb, verbose = true, robust = false)
+        surrogatem, classifier = train_surrogate_model(surrogatePb, verbose = true, saveToDisk = false, robust = false)
 
-        #=
         #input
         X = createX()
         #ouptut
@@ -365,10 +363,9 @@ end
         # Here the model cannot fail, so we should have the same results
         #---------------------------------------------------------------
         @test yPredicted == yPredictedRobust
-        =#
+
     end
 
-    #=
     @testset "Testing package on 2d->2d function that may fail" begin
 
         aTolMeanPerError = 0.05
@@ -381,7 +378,9 @@ end
         # Need more observations to learn where the model fails
         # When the model fails, the output is a large positive value
         # This creates a large discontinuity
-        opts = SModelsOptions(sModelType = :MLPRegressor, classifierType = :MLPClassifier, nbBatches = 5, batchSizeWorker = 100, desiredMinObs = 500)
+        opts = SModelsOptions(sModelType = :MLPRegressor, classifierType = :MLPClassifier,
+                              nbBatches = 5, batchSizeWorker = 100,
+                              desiredMinObs = 500, penaltyValue = 9.0)
 
         surrogatePb = SModelsProblem(    #function f:x -> y that we are trying to approximate
                           lowerBound = lowerBoundX, #lower bound for the parameter space
@@ -393,10 +392,10 @@ end
         set_model_function!(surrogatePb, trueFunctionRisk)
 
         # training the surrogate model, non-robust method
-        surrogatem, classifier = train_sModel(surrogatePb, verbose = true, robust = false)
+        surrogatem, classifier = train_surrogate_model(surrogatePb, verbose = true, robust = false)
 
         # training the surrogate model, robust method
-        surrogatemRobust, classifierRobust = train_sModel(surrogatePb, verbose = true, robust = true)
+        surrogatemRobust, classifierRobust = train_surrogate_model(surrogatePb, verbose = true, robust = true)
 
         # Test on a totally new sample:
         #-------------------------------
@@ -411,6 +410,7 @@ end
         yPredicted = predict(surrogatem, XScaled)
 
         mean_per_error_non_robust = calculate_mean_per_error(y, yPredicted)
+        median_per_error_non_robust = calculate_median_abs_per_error(y, yPredicted)
         max_per_error_non_robust = calculate_maximum_abs_per_error(y, yPredicted)
 
         # robust: use a different scaler
@@ -424,15 +424,26 @@ end
                                                 penaltyValue = surrogatePb.options.penaltyValue)
 
         mean_per_error_robust = calculate_mean_per_error(y, yPredictedRobust)
+        median_per_error_robust = calculate_median_abs_per_error(y, yPredictedRobust)
         max_per_error_robust = calculate_maximum_abs_per_error(y, yPredictedRobust)
 
         println("Regressor non-robust:")
         println("Mean Percentage Different Set = $(mean_per_error_non_robust)")
+        println("Median Percentage Different Set = $(median_per_error_non_robust)")
         println("Maximum Abs Percentage Error Different Set = $(max_per_error_non_robust)")
         println("----------------------")
         println("Regressor robust:")
         println("Mean Percentage Different Set = $(mean_per_error_robust)")
+        println("Median Percentage Different Set = $(median_per_error_robust)")
         println("Maximum Abs Percentage Error Different Set = $(max_per_error_robust)")
+
+        # The robust option shoudl minimize the median percentage error:
+        #---------------------------------------------------------------
+        @test median_per_error_robust < median_per_error_non_robust
+
+        # Not that the max percentage error is bigger with the non-robust option
+        # This occurs because when the classifier makes a mistake : the penalty
+        # value is wrongly returned.
 
     end
 
@@ -480,7 +491,7 @@ end
             set_model_function!(surrogatePb, trueFunction)
 
             # training the surrogate model
-            surrogatem, classifier = train_sModel(surrogatePb, verbose = true, saveToDisk = true)
+            surrogatem, classifier = train_surrogate_model(surrogatePb, verbose = true, saveToDisk = false, robust = false)
 
             #input
             X = createX()
@@ -506,6 +517,5 @@ end
         @test abs(listMaxPerErr[1]) > abs(listMaxPerErr[3])
 
     end
-    =#
 
 end

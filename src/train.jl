@@ -1,7 +1,7 @@
 # * use DistributedArrays
 # *
 
-function train_sModel(sModelsProblem::SModelsProblem; verbose::Bool=false, saveToDisk::Bool=false, robust::Bool=true)
+function train_surrogate_model(sModelsProblem::SModelsProblem; verbose::Bool=false, saveToDisk::Bool=false, robust::Bool=true)
 
   starting_date = date_now()
 
@@ -113,17 +113,23 @@ function train_sModel(sModelsProblem::SModelsProblem; verbose::Bool=false, saveT
     # If robust is true, train the regression on parameter values for which
     # convergence was reached
     #---------------------------------------------------------------------------
-    XTrainRobust = XTrain[yConvergenceTrain .== sModelsProblem.options.convergenceFlag]
-    XTestRobust = XTest[yConvergenceTest .== sModelsProblem.options.convergenceFlag]
-    yTrainRobust = yTrain[yConvergenceTrain .== sModelsProblem.options.convergenceFlag]
-    yTestRobust = yTest[yConvergenceTest .== sModelsProblem.options.convergenceFlag]
+    # Check that contains at least 2 observations
+    if sum(yConvergenceTrain .== sModelsProblem.options.convergenceFlag) > 2
+      XTrainRobust = XTrain[yConvergenceTrain .== sModelsProblem.options.convergenceFlag]
+      XTestRobust = XTest[yConvergenceTest .== sModelsProblem.options.convergenceFlag]
+      yTrainRobust = yTrain[yConvergenceTrain .== sModelsProblem.options.convergenceFlag]
+      yTestRobust = yTest[yConvergenceTest .== sModelsProblem.options.convergenceFlag]
+    else
+      info("No observations for which the model has converged.")
+      info("Drawing more observations before training")
+      continue
+    end
 
     if robust == false
       size_trainSample = size(XTrain, 1)
     else
       size_trainSample = size(XTrainRobust, 1)
     end
-
 
     # Scale the data
     #---------------
@@ -166,7 +172,7 @@ function train_sModel(sModelsProblem::SModelsProblem; verbose::Bool=false, saveT
         clf = MLPClassifier(solver="lbfgs", alpha=1e-5, hidden_layer_sizes = kValue, random_state=1)
         fit!(clf, XTrainScaled, yConvergenceTrain)
 
-        yPredicted = round(Int64, predict(clf, XTestScaled))
+        yPredicted = round.(Int64, predict(clf, XTestScaled))
         accuracyScore = accuracy_score(yConvergenceTest, yPredicted)
 
         # Maximize the accuracy:
@@ -193,7 +199,6 @@ function train_sModel(sModelsProblem::SModelsProblem; verbose::Bool=false, saveT
     if verbose == true
       info("Classifier")
       info("Accuracy Score Train Set = $(accuracy_score(yConvergenceTrain, yPredicted))")
-
     end
 
     # Test set

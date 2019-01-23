@@ -438,6 +438,43 @@ function calculate_maximum_abs_per_error(yTrue::Array{Array{Float64,1},1}, yPred
 end
 
 """
+  calculate_median_abs_per_error(yTrue::Array{Float64,2}, yPredicted::Array{Float64,2})
+
+Function to calculate the median of the absolute value fo the percentage difference
+"""
+function calculate_median_abs_per_error(yTrue::Array{Float64,2}, yPredicted::Array{Float64,2})
+
+  perError = zeros(size(yTrue, 1),size(yTrue, 2))
+  meanPredicted = mean(yPredicted)
+
+  for j=1:size(yTrue, 2)
+    for i=1:size(yTrue, 1)
+      if yPredicted[i,j] != 0
+        perError[i,j] = abs((yPredicted[i,j] - yTrue[i,j])/yTrue[i,j])
+      else
+        perError[i,j] = abs((yPredicted[i,j] - yTrue[i,j])/meanPredicted[j])
+      end
+
+    end
+  end
+
+  return median(perError)
+
+end
+
+"""
+  calculate_median_abs_per_error(yTrue::Array{Array{Float64,1},1}, yPredicted::Array{Float64,2})
+
+Function to calculate the median of the absolute value fo the percentage difference
+"""
+function calculate_median_abs_per_error(yTrue::Array{Array{Float64,1},1}, yPredicted::Array{Float64,2})
+
+  return calculate_median_abs_per_error(convert_to_array(yTrue), yPredicted)
+
+end
+
+
+"""
   date_now()
 
 Return date and time
