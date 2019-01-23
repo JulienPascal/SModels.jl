@@ -326,7 +326,7 @@ end
         lowerBoundX = [-1.0; -1.0]
 
 
-        opts = SModelsOptions(sModelType = :MLPRegressor, classifierType = :MLPClassifier, desiredMinObs = 40)
+        opts = SModelsOptions(sModelType = :MLPRegressor, classifierType = :MLPClassifier, batchSizeWorker = 100, desiredMinObs = 100)
 
         surrogatePb = SModelsProblem(
                           lowerBound = lowerBoundX, #lower bound for the parameter space
@@ -338,9 +338,8 @@ end
 
         set_model_function!(surrogatePb, trueFunction)
 
-
         # training the surrogate model
-        surrogatem, classifier = train_sModel(surrogatePb, verbose = true, robust = false)
+        surrogatem, classifier = train_surrogate_model(surrogatePb, verbose = true, saveToDisk = false, robust = false)
 
         #=
         #input
@@ -393,10 +392,10 @@ end
         set_model_function!(surrogatePb, trueFunctionRisk)
 
         # training the surrogate model, non-robust method
-        surrogatem, classifier = train_sModel(surrogatePb, verbose = true, robust = false)
+        surrogatem, classifier = train_surrogate_model(surrogatePb, verbose = true, robust = false)
 
         # training the surrogate model, robust method
-        surrogatemRobust, classifierRobust = train_sModel(surrogatePb, verbose = true, robust = true)
+        surrogatemRobust, classifierRobust = train_surrogate_model(surrogatePb, verbose = true, robust = true)
 
         # Test on a totally new sample:
         #-------------------------------
@@ -480,7 +479,7 @@ end
             set_model_function!(surrogatePb, trueFunction)
 
             # training the surrogate model
-            surrogatem, classifier = train_sModel(surrogatePb, verbose = true, saveToDisk = true)
+            surrogatem, classifier = train_surrogate_model(surrogatePb, verbose = true, saveToDisk = true)
 
             #input
             X = createX()

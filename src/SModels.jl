@@ -43,7 +43,7 @@ module SModels
   export create_grid_stochastic, generate_std
   # train.jl
   #---------
-  export train_sModel
+  export train_surrogate_model
   export evaluateModel!
 
 end # module
