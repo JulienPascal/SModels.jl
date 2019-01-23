@@ -6,7 +6,9 @@ model
 """
 struct SModelsOptions
   sModelType::Symbol          # The type of model to use for the surrogate model
-  desiredMaxPerError::Float64 # The desired percentage error after which training is stopped
+	classifierType::Symbol 			# The type of classifier to use
+  desiredMaxPerErrorRegressor::Float64 # The desired percentage error of the regressor after which training is stopped
+	desiredAccuracyClassifier::Float64 # The desired percentage error of the classifier after which training is stopped
 	desiredMinObs::Int64			# Minimum number of points in the train sample before stopping
   nWorkers::Int64          # To store the number of workers
   nbBatches::Int64         # Total number of batches before stopping
@@ -15,22 +17,32 @@ struct SModelsOptions
   maxEvals::Int64          # maxEvals = nbBatches*batchSize
   testTrainRatio::Float64  # size of the test sample relative to the train one
   gridType::Symbol         # Type of grid used when sampling from the parameter space
+	penaltyValue::Float64		 # Output value when the model fails
+	nonConvergenceFlag::Int64	# Flag to indicate non convergence of the model
+	convergenceFlag::Int64		# Flag to indicate convergence of the model
 end
 
-function SModelsOptions( ; sModelType = :MLPRegressor,
-                          desiredMaxPerError::Float64 = 0.5,
-													desiredMinObs::Int64 = 1000, # The desired percentage error after which training is stopped
-                          nWorkers::Int64 = nworkers(),          # To store the number of workers
+function SModelsOptions( ; sModelType::Symbol = :MLPRegressor,
+													classifierType::Symbol = :MLPClassifier,
+                          desiredMaxPerErrorRegressor::Float64 = 0.5,
+													desiredAccuracyClassifier::Float64 = 0.9,
+													desiredMinObs::Int64 = 100, # The desired percentage error after which training is stopped
+                          nWorkers::Int64 = nworkers(), # To store the number of workers
                           nbBatches::Int64 = 10,        # Total number of batches before stopping
                           batchSizeWorker::Int64 = 10,  # Number of evals done by each worker at each round (multiple of nworkers())
                           batchSize::Int64 = nworkers()*batchSizeWorker,         # batchSize = nworkers()*batchSizeWorker
                           maxEvals::Int64 = nbBatches*batchSize,        # maxEvals = nbBatches*batchSize
                           testTrainRatio::Float64 = 0.25,  # size of the test sample relative to the train one
-                          gridType::Symbol = :uniform)         # Type of grid used when sampling from the parameter space
+                          gridType::Symbol = :uniform,
+													penaltyValue::Float64 = 999.0,
+													nonConvergenceFlag::Int64 = 0,	# Flag to indicate non convergence of the model
+													convergenceFlag::Int64 = 1)		# Flag to indicate convergence of the model)
 
 
     SModelsOptions(sModelType,
-                  desiredMaxPerError,
+									classifierType,
+                  desiredMaxPerErrorRegressor,
+									desiredAccuracyClassifier,
 									desiredMinObs,
                   nWorkers,
                   nbBatches,
@@ -38,7 +50,10 @@ function SModelsOptions( ; sModelType = :MLPRegressor,
                   batchSize,
                   maxEvals,
                   testTrainRatio,
-                  gridType)
+                  gridType,
+									penaltyValue,
+									nonConvergenceFlag,
+									convergenceFlag)
 end
 """
 	SModelsProblem
@@ -53,7 +68,10 @@ mutable struct SModelsProblem
   dimY::Int64                  #dimension of the output vector
   options::SModelsOptions      #options
   trainingSuccessful::Bool     #desiredPerError reached?
-  scaler::PyObject             #to rescale the data
+  #scaler::PyObject             #to rescale the data for the regressor
+	#scalerRobust::PyObject       #to rescale the data for the regressor
+	scaler::Any            #to rescale the data for the regressor
+	scalerRobust::Any      #to rescale the data for the regressor
 end
 
 
@@ -64,7 +82,8 @@ function SModelsProblem( ;modelFunction::Function = default_function,    #functi
                           dimY::Int64 = 1,                 #dimension of the output vector
                           options::SModelsOptions = SModelsOptions(),     #options
                           trainingSuccessful::Bool = false,     #desiredPerError reached?
-                          scaler::PyObject = StandardScaler() )
+                          scaler = [],
+													scalerRobust = [])
 
 
   SModelsProblem(modelFunction,      #function f:x -> y that we are trying to approximate
@@ -74,7 +93,8 @@ function SModelsProblem( ;modelFunction::Function = default_function,    #functi
                 dimY,                 #dimension of the output vector
                 options,      #options
                 trainingSuccessful,     #desiredPerError reached?
-                scaler)
+                scaler,
+								scalerRobust)
 end
 
 
