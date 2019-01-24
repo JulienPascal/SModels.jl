@@ -316,6 +316,73 @@ end
 
     #cross-validation to choose the hidden-layer done "manually"
     #-----------------------------------------------------------
+    @testset "Testing package on 2d->1d function" begin
+
+        function function_1d(z::Array{Float64,1})
+          return cos(z[1])*exp(z[2])
+        end
+
+        # create output matrix
+        function create_y_1d(X::Array{Array{Float64,1},1})
+
+            y = zeros(size(X,1))
+
+            # Looping over X
+            for xIndex = 1:size(X,1)
+                y[xIndex] = function_1d([X[xIndex][1], X[xIndex][2]])
+            end
+
+            return y
+        end
+
+        aTolMeanPerError = 0.05
+        aTolMedianPerError = 0.05
+        aTolMaxPerError = 0.5
+
+        upperBoundX = [1.0; 1.0]
+        lowerBoundX = [-1.0; -1.0]
+
+
+        opts = SModelsOptions(sModelType = :MLPRegressor, classifierType = :MLPClassifier, batchSizeWorker = 10, desiredMinObs = 80)
+
+        surrogatePb = SModelsProblem(lowerBound = lowerBoundX, #lower bound for the parameter space
+                          upperBound = upperBoundX,                   #upper bound for the parameter space
+                          dimX = 2,                #dimension of the input parameter
+                          dimY = 1,                 #dimension of the output vector
+                          options = opts)
+
+
+        set_model_function!(surrogatePb, function_1d)
+
+        # training the surrogate model
+        surrogatem, classifier = train_surrogate_model(surrogatePb, verbose = true, saveToDisk = false, robust = true)
+
+        #input
+        X = createX()
+        #ouptut
+        y = create_y_1d(X)
+
+        # non-robust:
+        XScaled = transform(surrogatePb.scaler, X)
+        yPredicted = predict(surrogatem, XScaled)
+        # classifier:
+        yConvergencePredicted = round.(Int64, predict(classifier, XScaled))
+
+        println("Regressor:")
+        println("Mean Percentage Different Set = $(calculate_mean_per_error(y, yPredicted))")
+        println("Median Abs Percentage Different Set = $(calculate_median_abs_per_error(y, yPredicted))")
+        println("Maximum Abs Percentage Error Different Set = $(calculate_maximum_abs_per_error(y, yPredicted))")
+
+        @test calculate_mean_per_error(y, yPredicted) < aTolMeanPerError
+        @test calculate_median_abs_per_error(y, yPredicted) < aTolMedianPerError
+        @test calculate_maximum_abs_per_error(y, yPredicted) < aTolMaxPerError
+        # Model never fails. The classsifier should predict this feature:
+        @test sum(yConvergencePredicted) == length(yConvergencePredicted)
+
+    end
+
+    #cross-validation to choose the hidden-layer done "manually"
+    #-----------------------------------------------------------
     @testset "Testing package on 2d->2d function" begin
 
         aTolMeanPerError = 0.05

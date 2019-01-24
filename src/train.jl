@@ -278,11 +278,13 @@ function train_surrogate_model(sModelsProblem::SModelsProblem; verbose::Bool=fal
       fit!(clfr, XTrainScaled, yTrain)
       yPredicted = predict(clfr, XTrainScaled) # Train set
       mean_per_regressorTrain = calculate_mean_per_error(yTest, yPredicted)
+      median_per_regressorTrain = calculate_median_abs_per_error(yTest, yPredicted)
       max_abs_per_regressorTrain = calculate_maximum_abs_per_error(yTest, yPredicted)
       # Test Set:
       #-----------
       yPredicted = predict(clfr, XTestScaled)
       mean_per_regressor = calculate_mean_per_error(yTest, yPredicted)
+      median_per_regressor = calculate_median_abs_per_error(yTest, yPredicted)
       max_abs_per_regressor = calculate_maximum_abs_per_error(yTest, yPredicted)
 
     # If robust = true, use only the data for which convergence was reached
@@ -293,11 +295,13 @@ function train_surrogate_model(sModelsProblem::SModelsProblem; verbose::Bool=fal
       fit!(clfr, XTrainScaledRobust, yTrainRobust)
       yPredicted = predict(clfr, XTestScaledRobust) # Train set
       mean_per_regressorTrain = calculate_mean_per_error(yTestRobust, yPredicted)
+      median_per_regressorTrain = calculate_median_abs_per_error(yTestRobust, yPredicted)
       max_abs_per_regressorTrain = calculate_maximum_abs_per_error(yTestRobust, yPredicted)
       # Test Set:
       #-----------
       yPredicted = predict(clfr, XTestScaledRobust)
       mean_per_regressor = calculate_mean_per_error(yTestRobust, yPredicted)
+      median_per_regressor = calculate_median_abs_per_error(yTestRobust, yPredicted)
       max_abs_per_regressor = calculate_maximum_abs_per_error(yTestRobust, yPredicted)
     end
 
@@ -305,10 +309,13 @@ function train_surrogate_model(sModelsProblem::SModelsProblem; verbose::Bool=fal
       info("Regressor:")
       info("Train set:")
       info("Mean Percentage Error Train Set = $(mean_per_regressorTrain)")
+      info("Median Percentage Error Train Set = $(median_per_regressorTrain)")
       info("Maximum Abs Percentage Error Train Set = $(max_abs_per_regressorTrain)")
       info("Test set:")
       info("Mean Percentage Error Test Set = $(mean_per_regressor)")
+      info("Median Percentage Error Train Set = $(median_per_regressor)")
       info("Maximum Abs Percentage Error Test Set = $(max_abs_per_regressor)")
+      info("Train sample size = $(size_trainSample)")
     end
 
     # If requested, save the model
@@ -346,7 +353,7 @@ function train_surrogate_model(sModelsProblem::SModelsProblem; verbose::Bool=fal
       if verbose == true
         info("Current max percentage error regressor = $(max_abs_per_regressor)")
         info("Desired max percentage error regressor = $(sModelsProblem.options.desiredMaxPerErrorRegressor)")
-        info("Size of the train sample = $(size(XTrain,1))")
+        info("Size of the train sample = $(size_trainSample)")
       end
 
       # Test on the classifier
@@ -405,7 +412,7 @@ function evaluateModel!(sModelsProblem::SModelsProblem, XDistributed::Array, YDi
   for i=1:size(XDistributed, 1)
 
     # set penalty value by default:
-    YDistributed[i,:] = ones(sModelsProblem.dimX)*sModelsProblem.options.penaltyValue
+    YDistributed[i,:] = ones(sModelsProblem.dimY)*sModelsProblem.options.penaltyValue
     YConvergenceDistributed[i] = sModelsProblem.options.nonConvergenceFlag
 
     try
