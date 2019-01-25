@@ -1,6 +1,3 @@
-# * use DistributedArrays
-# *
-
 function train_surrogate_model(sModelsProblem::SModelsProblem; verbose::Bool=false, saveToDisk::Bool=false, robust::Bool=true)
 
   starting_date = date_now()
@@ -293,7 +290,7 @@ function train_surrogate_model(sModelsProblem::SModelsProblem; verbose::Bool=fal
       # Train Set:
       #-----------
       fit!(clfr, XTrainScaledRobust, yTrainRobust)
-      yPredicted = predict(clfr, XTestScaledRobust) # Train set
+      yPredicted = predict(clfr, XTrainScaledRobust) # Train set
       mean_per_regressorTrain = calculate_mean_per_error(yTestRobust, yPredicted)
       median_per_regressorTrain = calculate_median_abs_per_error(yTestRobust, yPredicted)
       max_abs_per_regressorTrain = calculate_maximum_abs_per_error(yTestRobust, yPredicted)
@@ -313,7 +310,7 @@ function train_surrogate_model(sModelsProblem::SModelsProblem; verbose::Bool=fal
       info("Maximum Abs Percentage Error Train Set = $(max_abs_per_regressorTrain)")
       info("Test set:")
       info("Mean Percentage Error Test Set = $(mean_per_regressor)")
-      info("Median Percentage Error Train Set = $(median_per_regressor)")
+      info("Median Percentage Error Test Set = $(median_per_regressor)")
       info("Maximum Abs Percentage Error Test Set = $(max_abs_per_regressor)")
       info("Train sample size = $(size_trainSample)")
     end
